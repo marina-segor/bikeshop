@@ -1,4 +1,6 @@
-const { response } = require('express');
+
+const stripe = require('stripe')('sk_test_51J16sKKJ2ijH5YDoWtycz32Jmrrir3GAqDGPRkitGyRQiw5gCVgzVs8PAhLqunx8h1f0ZeRb6NCHQKPUWwEgthPE00SPstfFKp')
+
 var express = require('express');
 var router = express.Router();
 var dataBike = [
@@ -13,10 +15,8 @@ var dataBike = [
 
 /* GET home page. */
 router.get('/home', function(req, res, next) {
-    if (req.session.dataCardBike === undefined){
-    req.session.dataCardBike = []
-  };
-  console.log('GET /home');
+  
+  console.log('GET/home');
   
   
   res.render('index', { title: '', dataBike });
@@ -25,7 +25,9 @@ router.get('/home', function(req, res, next) {
 // var dataCardBike = [];
 
 router.get('/shop', function(req, res, next){
-  
+  if (req.session.dataCardBike === undefined){
+    req.session.dataCardBike = []
+  };
   var alreadyExist = false;
 
   for(var i = 0; i< req.session.dataCardBike.length; i++){
@@ -70,5 +72,42 @@ router.post('/update-shop', function (req, res, next){
     console.log('update', req.session.dataCardBike)
     res.render('shop', {dataCardBike: req.session.dataCardBike})
 });
+
+
+// CHECKOUT
+
+router.post('/create-checkout-session', async (req, res) => {
+
+   stripeItems = []
+
+    for (var bike=0; bike < req.session.dataCardBike.length; bike++){
+      stripeItems.push({
+        price_data: {
+          currency: 'eur',
+          product_data: {
+            name: req.session.dataCardBike[bike].name,
+          },
+          unit_amount: Number(req.session.dataCardBike[bike].price)*100,
+        },
+        quantity: req.session.dataCardBike[bike].quantity,
+      });
+    }
+   
+   
+    const session = await stripe.checkout.sessions.create({
+    payment_method_types: ["card"],
+    line_items: stripeItems,
+    mode: 'payment',
+    success_url: "http://localhost:3000/confirm",
+    cancel_url: "http://localhost:3000/",
+  });
+
+  res.json({ id: session.id });
+});
+
+router.get('/confirm', function(req, res, next){
+  res.render('confirm')
+})
+
 
 module.exports = router;
